@@ -3,7 +3,18 @@ const crypto = require('crypto');
 const { MESSAGE_TYPES } = require('@mitunel/common');
 const tunnelManager = require('./tunnelManager');
 
-const getSubdomainFromHost = (hostHeader, baseDomain) => {
+const getSubdomainFromHost = (hostHeader, baseDomain, req) => {
+  if (req && req.headers && req.headers['x-tunnel-subdomain']) {
+    return req.headers['x-tunnel-subdomain'].trim().toLowerCase();
+  }
+  if (req && req.url) {
+    try {
+      const urlObj = new URL(req.url, 'http://localhost');
+      if (urlObj.searchParams.has('_subdomain')) {
+        return urlObj.searchParams.get('_subdomain').trim().toLowerCase();
+      }
+    } catch (e) {}
+  }
   if (!hostHeader) return null;
   // Limpiar puerto si existe (ej. xyz.mitunel.dev:8080 -> xyz.mitunel.dev)
   const cleanHost = hostHeader.split(':')[0].toLowerCase();
@@ -22,6 +33,10 @@ const getSubdomainFromHost = (hostHeader, baseDomain) => {
 
   if (cleanHost.endsWith(`.${cleanBase}`)) {
     return cleanHost.slice(0, -(cleanBase.length + 1));
+  }
+
+  if (cleanHost.endsWith('.mitunel-proxy.onrender.com')) {
+    return cleanHost.slice(0, -'.mitunel-proxy.onrender.com'.length);
   }
 
   // Si se prueba en local con cabeceras directas o subdominios localhost (ej: test.localhost)
@@ -136,7 +151,7 @@ const createHttpProxyHandler = (baseDomain, pricingUrl) => {
       );
     }
 
-    const subdomain = getSubdomainFromHost(req.headers.host, baseDomain);
+    const subdomain = getSubdomainFromHost(req.headers.host, baseDomain, req);
 
     // Si es la raíz del dominio o no hay subdominio especificado
     if (!subdomain) {
