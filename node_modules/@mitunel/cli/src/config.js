@@ -14,7 +14,7 @@ const loadConfig = () => {
     // Si el archivo está corrupto o ilegible, inicializar nuevo
   }
   return {
-    serverUrl: process.env.MITUNEL_SERVER || 'ws://localhost:8080',
+    serverUrl: process.env.MITUNEL_SERVER || 'https://mitunel-proxy.onrender.com',
     pricingUrl: 'https://mitunel.dev/pricing',
   };
 };

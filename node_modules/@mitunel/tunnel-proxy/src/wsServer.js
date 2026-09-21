@@ -123,11 +123,32 @@ const setupWebSocketServer = (server) => {
             `HTTP/1.1 402 Payment Required\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`
           );
         } else if (status === 401) {
-          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          const body = JSON.stringify({
+            error: 'Unauthorized',
+            reason: data?.reason || 'UNAUTHORIZED',
+            message: data?.message || 'Token de autenticación no válido',
+          });
+          socket.write(
+            `HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`
+          );
         } else if (status === 403) {
-          socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+          const body = JSON.stringify({
+            error: 'Forbidden',
+            reason: data?.reason || 'FORBIDDEN',
+            message: data?.message || 'Acceso denegado por el Control Plane (verifica INTERNAL_API_KEY)',
+          });
+          socket.write(
+            `HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`
+          );
         } else {
-          socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+          const body = JSON.stringify({
+            error: 'Bad Request',
+            reason: data?.reason || 'BAD_REQUEST',
+            message: data?.message || 'Error en validación de túnel',
+          });
+          socket.write(
+            `HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`
+          );
         }
         socket.destroy();
         return;

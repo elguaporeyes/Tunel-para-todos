@@ -46,7 +46,7 @@ program
     }
 
     const config = loadConfig();
-    const serverUrl = options.server || config.serverUrl || 'ws://localhost:8080';
+    const serverUrl = options.server || config.serverUrl || 'https://mitunel-proxy.onrender.com';
     const pricingUrl = config.pricingUrl || 'https://mitunel.dev/pricing';
 
     console.log(`\nIniciando conexión con ${serverUrl}...`);

@@ -2,8 +2,8 @@ const { ERROR_CODES } = require('@mitunel/common');
 
 class ControlPlaneClient {
   constructor() {
-    this.baseUrl = process.env.CONTROL_PLANE_URL || 'http://localhost:4000';
-    this.secret = process.env.INTERNAL_PROXY_SECRET || 'proxy_internal_secret_key_change_in_prod';
+    this.baseUrl = process.env.CONTROL_PLANE_URL || (process.env.NODE_ENV === 'production' ? 'https://tunel-para-todos.onrender.com' : 'http://localhost:4000');
+    this.secret = process.env.INTERNAL_API_KEY || process.env.INTERNAL_PROXY_SECRET || 'proxy_internal_secret_key_change_in_prod';
   }
 
   async validateTunnel(token, requestedSubdomain) {
@@ -13,6 +13,7 @@ class ControlPlaneClient {
         headers: {
           'Content-Type': 'application/json',
           'x-proxy-secret': this.secret,
+          'x-internal-api-key': this.secret,
         },
         body: JSON.stringify({ token, requestedSubdomain }),
       });
@@ -42,6 +43,7 @@ class ControlPlaneClient {
         headers: {
           'Content-Type': 'application/json',
           'x-proxy-secret': this.secret,
+          'x-internal-api-key': this.secret,
         },
         body: JSON.stringify(usageData),
       });

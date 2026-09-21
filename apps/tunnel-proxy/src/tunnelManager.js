@@ -43,11 +43,28 @@ class TunnelManager {
     return this.tunnels.get(subdomain);
   }
 
-  removeTunnel(subdomain) {
+  async removeTunnel(subdomain) {
     const tunnel = this.tunnels.get(subdomain);
     if (tunnel) {
-      this.flushUsage(tunnel);
+      await this.flushUsage(tunnel);
       this.tunnels.delete(subdomain);
+    }
+  }
+
+  async flushUsage(tunnel) {
+    if (!tunnel || !tunnel.unreportedRequests) return;
+    try {
+      await controlPlaneClient.reportUsage({
+        subdomain: tunnel.subdomain,
+        userId: tunnel.userId,
+        apiKeyId: tunnel.apiKeyId,
+        requestsCount: tunnel.unreportedRequests,
+        bytesTransferred: tunnel.unreportedBytes || 0,
+      });
+      tunnel.unreportedRequests = 0;
+      tunnel.unreportedBytes = 0;
+    } catch (e) {
+      console.warn(`[TunnelManager] Advertencia en flushUsage: ${e.message}`);
     }
   }
 

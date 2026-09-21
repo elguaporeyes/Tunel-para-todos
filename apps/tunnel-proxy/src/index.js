@@ -3,7 +3,7 @@ const http = require('http');
 const { createHttpProxyHandler } = require('./httpProxy');
 const setupWebSocketServer = require('./wsServer');
 
-const HTTP_PORT = process.env.HTTP_PORT || 8080;
+const HTTP_PORT = process.env.PORT || process.env.HTTP_PORT || 8080;
 const BASE_DOMAIN = process.env.BASE_DOMAIN || 'mitunel.dev';
 const PRICING_URL = process.env.PRICING_URL || 'https://mitunel.dev/pricing';
 

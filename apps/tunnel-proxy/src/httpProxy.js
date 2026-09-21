@@ -9,7 +9,14 @@ const getSubdomainFromHost = (hostHeader, baseDomain) => {
   const cleanHost = hostHeader.split(':')[0].toLowerCase();
   const cleanBase = baseDomain.split(':')[0].toLowerCase();
 
-  if (cleanHost === cleanBase || cleanHost === 'localhost' || cleanHost === '127.0.0.1') {
+  // Si es el dominio base configurado, localhost o dominio raíz directo de Render
+  if (
+    cleanHost === cleanBase ||
+    cleanHost === 'localhost' ||
+    cleanHost === '127.0.0.1' ||
+    cleanHost === 'mitunel-proxy.onrender.com' ||
+    (cleanHost.endsWith('.onrender.com') && cleanHost.split('.').length <= 3)
+  ) {
     return null; // Es el dominio raíz
   }
 
@@ -18,9 +25,8 @@ const getSubdomainFromHost = (hostHeader, baseDomain) => {
   }
 
   // Si se prueba en local con cabeceras directas o subdominios localhost (ej: test.localhost)
-  const parts = cleanHost.split('.');
-  if (parts.length > 1) {
-    return parts[0];
+  if (cleanHost.endsWith('.localhost')) {
+    return cleanHost.slice(0, -'.localhost'.length);
   }
 
   return null;
@@ -117,6 +123,19 @@ const renderTunnelErrorPage = (statusCode, title, description, badgeText, ctaUrl
 
 const createHttpProxyHandler = (baseDomain, pricingUrl) => {
   return async (req, res) => {
+    // Endpoint de Health Check
+    if (req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(
+        JSON.stringify({
+          status: 'ok',
+          service: 'mitunel-tunnel-proxy',
+          timestamp: new Date().toISOString(),
+          activeTunnels: tunnelManager.tunnels.size,
+        })
+      );
+    }
+
     const subdomain = getSubdomainFromHost(req.headers.host, baseDomain);
 
     // Si es la raíz del dominio o no hay subdominio especificado

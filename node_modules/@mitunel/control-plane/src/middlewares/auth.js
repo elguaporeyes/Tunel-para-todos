@@ -36,13 +36,13 @@ const protectUser = async (req, res, next) => {
 };
 
 const verifyInternalProxy = (req, res, next) => {
-  const proxySecret = req.headers['x-proxy-secret'];
-  const expectedSecret = process.env.INTERNAL_PROXY_SECRET || 'proxy_internal_secret_key_change_in_prod';
+  const proxySecret = req.headers['x-proxy-secret'] || req.headers['x-internal-api-key'] || req.headers['authorization'];
+  const expectedSecret = process.env.INTERNAL_API_KEY || process.env.INTERNAL_PROXY_SECRET || 'proxy_internal_secret_key_change_in_prod';
 
-  if (!proxySecret || proxySecret !== expectedSecret) {
+  if (!proxySecret || (proxySecret !== expectedSecret && proxySecret !== `Bearer ${expectedSecret}`)) {
     return res.status(403).json({
       success: false,
-      error: 'Acceso denegado: Firma de proxy interno inválida'
+      error: 'Acceso denegado: Firma de proxy interno inválida (verifica INTERNAL_API_KEY / INTERNAL_PROXY_SECRET)'
     });
   }
   next();
