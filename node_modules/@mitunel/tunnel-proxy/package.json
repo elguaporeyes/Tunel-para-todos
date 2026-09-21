@@ -1,0 +1,16 @@
+{
+  "name": "@mitunel/tunnel-proxy",
+  "version": "1.0.0",
+  "description": "Servidor Edge HTTP y Gateway WebSocket para multiplexación de túneles",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@mitunel/common": "*",
+    "dotenv": "^16.4.5",
+    "jsonwebtoken": "^9.0.2",
+    "ws": "^8.18.0"
+  }
+}

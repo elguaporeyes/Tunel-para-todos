@@ -1,0 +1,8 @@
+{
+  "name": "@mitunel/common",
+  "version": "1.0.0",
+  "description": "Protocolos compartidos y constantes para el sistema de tunelización",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "dependencies": {}
+}

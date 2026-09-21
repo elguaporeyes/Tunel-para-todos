@@ -1,0 +1,31 @@
+{
+  "name": "mitunel-monorepo",
+  "version": "1.0.0",
+  "description": "Infraestructura de tunelización localhost a red pública con modelo Freemium y billing",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "start:control-plane": "npm --workspace=apps/control-plane run start",
+    "dev:control-plane": "npm --workspace=apps/control-plane run dev",
+    "start:proxy": "npm --workspace=apps/tunnel-proxy run start",
+    "dev:proxy": "npm --workspace=apps/tunnel-proxy run dev",
+    "cli": "npm --workspace=apps/cli run mitunel",
+    "test": "npm run test --workspaces"
+  },
+  "keywords": [
+    "tunnel",
+    "reverse-proxy",
+    "ngrok",
+    "freemium",
+    "stripe",
+    "websockets"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "mongodb": "^7.6.0"
+  }
+}

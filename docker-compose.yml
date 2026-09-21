@@ -1,0 +1,53 @@
+services:
+  # Base de Datos MongoDB
+  mongodb:
+    image: mongo:7.0
+    container_name: mitunel-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=mitunel
+
+  # Backend Control Plane & Billing
+  control-plane:
+    build:
+      context: .
+      dockerfile: apps/control-plane/Dockerfile
+    container_name: mitunel-control-plane
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/mitunel
+      - JWT_SECRET=super_secret_jwt_key_mitunel_production
+      - INTERNAL_PROXY_SECRET=proxy_internal_secret_key_change_in_prod
+      - BASE_DOMAIN=mitunel.dev
+    depends_on:
+      - mongodb
+
+  # Tunnel Proxy Server (Edge Reverse Proxy + WebSocket Gateway)
+  tunnel-proxy:
+    build:
+      context: .
+      dockerfile: apps/tunnel-proxy/Dockerfile
+    container_name: mitunel-proxy
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - HTTP_PORT=8080
+      - BASE_DOMAIN=mitunel.dev
+      - PUBLIC_PROTOCOL=http
+      - CONTROL_PLANE_URL=http://control-plane:4000
+      - INTERNAL_PROXY_SECRET=proxy_internal_secret_key_change_in_prod
+      - PRICING_URL=https://mitunel.dev/pricing
+    depends_on:
+      - control-plane
+
+volumes:
+  mongo_data:

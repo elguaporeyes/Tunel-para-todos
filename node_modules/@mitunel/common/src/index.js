@@ -1,0 +1,40 @@
+/**
+ * Constantes y definiciones de protocolo para la plataforma MiTunel
+ */
+
+const MESSAGE_TYPES = {
+  // Autenticación inicial del túnel
+  AUTH_INIT: 'AUTH_INIT',
+  AUTH_SUCCESS: 'AUTH_SUCCESS',
+  AUTH_ERROR: 'AUTH_ERROR',
+
+  // Multiplexación de peticiones HTTP
+  HTTP_REQUEST: 'HTTP_REQUEST',
+  HTTP_RESPONSE: 'HTTP_RESPONSE',
+  HTTP_CHUNK: 'HTTP_CHUNK',
+  HTTP_END: 'HTTP_END',
+
+  // Notificaciones de Saldo / Créditos
+  CREDIT_UPDATE: 'CREDIT_UPDATE',
+  TUNNEL_TERMINATED: 'TUNNEL_TERMINATED',
+
+  // Heartbeat
+  PING: 'PING',
+  PONG: 'PONG'
+};
+
+const ERROR_CODES = {
+  INVALID_TOKEN: 'INVALID_TOKEN',
+  CREDITS_EXHAUSTED: 'CREDITS_EXHAUSTED',
+  SUBDOMAIN_UNAVAILABLE: 'SUBDOMAIN_UNAVAILABLE',
+  SUBDOMAIN_RESERVED: 'SUBDOMAIN_RESERVED',
+  INTERNAL_ERROR: 'INTERNAL_ERROR'
+};
+
+const DEFAULT_FREE_WEEKLY_CREDITS = 100;
+
+module.exports = {
+  MESSAGE_TYPES,
+  ERROR_CODES,
+  DEFAULT_FREE_WEEKLY_CREDITS
+};
