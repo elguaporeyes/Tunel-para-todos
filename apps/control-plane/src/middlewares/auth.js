@@ -39,6 +39,9 @@ const verifyInternalProxy = (req, res, next) => {
   const proxySecret = req.headers['x-proxy-secret'] || req.headers['x-internal-api-key'] || req.headers['authorization'];
   const expectedSecret = process.env.INTERNAL_API_KEY || process.env.INTERNAL_PROXY_SECRET || 'proxy_internal_secret_key_change_in_prod';
 
+  // DEBUG temporal: mostrar en logs para diagnosticar mismatch en producción
+  console.log(`[verifyInternalProxy] Received: "${proxySecret ? proxySecret.substring(0,12) + '...' : 'NONE'}" | Expected starts with: "${expectedSecret.substring(0,12)}..." | Match: ${proxySecret === expectedSecret}`);
+
   if (!proxySecret || (proxySecret !== expectedSecret && proxySecret !== `Bearer ${expectedSecret}`)) {
     return res.status(403).json({
       success: false,
