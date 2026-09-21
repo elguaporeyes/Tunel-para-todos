@@ -26,6 +26,15 @@ test('Subdomain Extraction from Host Header', () => {
 
   // Subdominio localhost
   assert.equal(getSubdomainFromHost('tunnel123.localhost', baseDomain), 'tunnel123');
+
+  // Soporte pasando objeto Request con header host
+  assert.equal(getSubdomainFromHost({ headers: { host: 'demo.mitunel.dev:443' } }, baseDomain), 'demo');
+
+  // Soporte pasando objeto Request con X-Forwarded-Host (Render, Cloudflare, proxies inversos)
+  assert.equal(
+    getSubdomainFromHost({ headers: { 'x-forwarded-host': 'api-client.mitunel.dev, mitunel-proxy.onrender.com' } }, baseDomain),
+    'api-client'
+  );
 });
 
 test('API Key Token Generation Format', () => {

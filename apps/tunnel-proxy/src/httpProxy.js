@@ -3,24 +3,59 @@ const crypto = require('crypto');
 const { MESSAGE_TYPES } = require('@mitunel/common');
 const tunnelManager = require('./tunnelManager');
 
-const getSubdomainFromHost = (hostHeader, baseDomain, req) => {
-  if (req && req.headers && req.headers['x-tunnel-subdomain']) {
-    return req.headers['x-tunnel-subdomain'].trim().toLowerCase();
-  }
-  if (req && req.url) {
-    try {
-      const urlObj = new URL(req.url, 'http://localhost');
-      if (urlObj.searchParams.has('_subdomain')) {
-        return urlObj.searchParams.get('_subdomain').trim().toLowerCase();
-      }
-    } catch (e) {}
-  }
-  if (!hostHeader) return null;
-  // Limpiar puerto si existe (ej. xyz.mitunel.dev:8080 -> xyz.mitunel.dev)
-  const cleanHost = hostHeader.split(':')[0].toLowerCase();
-  const cleanBase = baseDomain.split(':')[0].toLowerCase();
+/**
+ * Extrae el subdominio del encabezado HTTP Host o X-Forwarded-Host considerando
+ * peticiones directas, proxies inversos (Render, Cloudflare, etc.) y desarrollo local.
+ *
+ * @param {string|object} hostHeaderOrReq - Cadena Host o el objeto IncomingMessage (req)
+ * @param {string} baseDomain - Dominio base configurado (ej: 'mitunel.dev')
+ * @param {object} [req] - Objeto IncomingMessage opcional si se pasa el host como primer argumento
+ * @returns {string|null} - Subdominio extraído en minúsculas, o null si es la raíz o no se encuentra
+ */
+const getSubdomainFromHost = (hostHeaderOrReq, baseDomain, req) => {
+  let reqObj = null;
+  let rawHost = '';
 
-  // Si es el dominio base configurado, localhost o dominio raíz directo de Render
+  if (hostHeaderOrReq && typeof hostHeaderOrReq === 'object' && hostHeaderOrReq.headers) {
+    reqObj = hostHeaderOrReq;
+  } else {
+    rawHost = typeof hostHeaderOrReq === 'string' ? hostHeaderOrReq : '';
+    reqObj = req || null;
+  }
+
+  // 1. Obtener host efectivo: preferir X-Forwarded-Host si viene detrás de proxy inverso (Render, Cloudflare)
+  if (reqObj && reqObj.headers) {
+    const xForwardedHost = reqObj.headers['x-forwarded-host'];
+    if (xForwardedHost) {
+      // Si hay múltiples proxies encadenados separados por coma, tomar el primero
+      rawHost = xForwardedHost.split(',')[0].trim();
+    } else if (!rawHost && reqObj.headers.host) {
+      rawHost = reqObj.headers.host;
+    }
+
+    // Cabecera opcional explícita para debug o pruebas
+    if (reqObj.headers['x-tunnel-subdomain']) {
+      return reqObj.headers['x-tunnel-subdomain'].trim().toLowerCase();
+    }
+
+    // Compatibilidad fallback con query param _subdomain
+    if (reqObj.url) {
+      try {
+        const urlObj = new URL(reqObj.url, 'http://localhost');
+        if (urlObj.searchParams.has('_subdomain')) {
+          return urlObj.searchParams.get('_subdomain').trim().toLowerCase();
+        }
+      } catch (e) {}
+    }
+  }
+
+  if (!rawHost) return null;
+
+  // 2. Limpiar puerto si existe (ej. xyz.mitunel.dev:8080 -> xyz.mitunel.dev)
+  const cleanHost = rawHost.split(':')[0].trim().toLowerCase();
+  const cleanBase = (baseDomain || 'mitunel.dev').split(':')[0].trim().toLowerCase();
+
+  // 3. Descartar dominio raíz o direcciones locales/Render sin subdominio
   if (
     cleanHost === cleanBase ||
     cleanHost === 'localhost' ||
@@ -31,17 +66,22 @@ const getSubdomainFromHost = (hostHeader, baseDomain, req) => {
     return null; // Es el dominio raíz
   }
 
+  // 4. Subdominio sobre el dominio base configurado (ej: myapp.mitunel.dev -> myapp)
   if (cleanHost.endsWith(`.${cleanBase}`)) {
-    return cleanHost.slice(0, -(cleanBase.length + 1));
+    const sub = cleanHost.slice(0, -(cleanBase.length + 1));
+    return sub || null;
   }
 
+  // 5. Subdominio sobre mitunel-proxy.onrender.com
   if (cleanHost.endsWith('.mitunel-proxy.onrender.com')) {
-    return cleanHost.slice(0, -'.mitunel-proxy.onrender.com'.length);
+    const sub = cleanHost.slice(0, -'.mitunel-proxy.onrender.com'.length);
+    return sub || null;
   }
 
-  // Si se prueba en local con cabeceras directas o subdominios localhost (ej: test.localhost)
+  // 6. Subdominio para pruebas en local (ej: test.localhost -> test)
   if (cleanHost.endsWith('.localhost')) {
-    return cleanHost.slice(0, -'.localhost'.length);
+    const sub = cleanHost.slice(0, -'.localhost'.length);
+    return sub || null;
   }
 
   return null;
@@ -151,7 +191,7 @@ const createHttpProxyHandler = (baseDomain, pricingUrl) => {
       );
     }
 
-    const subdomain = getSubdomainFromHost(req.headers.host, baseDomain, req);
+    const subdomain = getSubdomainFromHost(req, baseDomain);
 
     // Si es la raíz del dominio o no hay subdominio especificado
     if (!subdomain) {
