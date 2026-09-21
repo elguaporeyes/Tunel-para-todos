@@ -14,6 +14,7 @@
     "dev:proxy": "npm --workspace=apps/tunnel-proxy run dev",
     "start:hello": "node apps/hello-world.js",
     "cli": "npm --workspace=apps/cli run mitunel",
+    "build:cli-exe": "npm --workspace=apps/cli run build:exe",
     "test": "npm run test --workspaces"
   },
   "keywords": [

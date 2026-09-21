@@ -2,17 +2,23 @@
   "name": "@mitunel/cli",
   "version": "1.0.0",
   "description": "Herramienta de consola para exponer servicios locales mediante túneles seguros",
-  "bin": {
-    "mitunel": "./bin/mitunel.js"
-  },
-  "main": "src/index.js",
+  "bin": "./bin/mitunel.js",
   "scripts": {
-    "mitunel": "node ./bin/mitunel.js"
+    "mitunel": "node ./bin/mitunel.js",
+    "build:exe": "pkg . --targets node18-win-x64 --output dist/mitunel.exe"
+  },
+  "pkg": {
+    "scripts": [
+      "src/**/*.js"
+    ]
   },
   "dependencies": {
     "@mitunel/common": "*",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
   }
 }
