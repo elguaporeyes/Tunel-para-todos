@@ -134,7 +134,7 @@ async function runCloudVerification() {
       hostname: PROXY_HOST,
       port: 443,
       servername: PROXY_HOST,
-      path: '/api/saludo-cloud',
+      path: `/api/saludo-cloud?_subdomain=${assignedSubdomain}`,
       method: 'GET',
       headers: {
         Host: PROXY_HOST,
