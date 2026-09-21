@@ -12,6 +12,7 @@
     "dev:control-plane": "npm --workspace=apps/control-plane run dev",
     "start:proxy": "npm --workspace=apps/tunnel-proxy run start",
     "dev:proxy": "npm --workspace=apps/tunnel-proxy run dev",
+    "start:hello": "node apps/hello-world.js",
     "cli": "npm --workspace=apps/cli run mitunel",
     "test": "npm run test --workspaces"
   },
