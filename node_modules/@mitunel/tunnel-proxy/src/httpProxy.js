@@ -4,8 +4,57 @@ const { MESSAGE_TYPES } = require('@mitunel/common');
 const tunnelManager = require('./tunnelManager');
 
 /**
+ * Limpia y normaliza la URL para enviarla al servicio local, removiendo el prefijo /t/<subdominio>
+ * o los parámetros de túnel (?tunnel= o ?_subdomain=) si fueron utilizados.
+ *
+ * @param {string} urlStr - URL recibida por el proxy
+ * @param {string} subdomain - Subdominio del túnel activo
+ * @returns {string} - URL limpia para el servidor local
+ */
+const stripTunnelFromUrl = (urlStr, subdomain) => {
+  if (!urlStr) return '/';
+
+  let cleaned = urlStr;
+  const pathPrefix = `/t/${subdomain}`;
+
+  // 1. Remover prefijo /t/<subdominio>
+  if (cleaned === pathPrefix || cleaned === `${pathPrefix}/`) {
+    cleaned = '/';
+  } else if (cleaned.startsWith(`${pathPrefix}/`)) {
+    cleaned = cleaned.slice(pathPrefix.length);
+  } else if (cleaned.startsWith(`${pathPrefix}?`)) {
+    cleaned = `/${cleaned.slice(pathPrefix.length)}`;
+  } else if (cleaned.startsWith(`${pathPrefix}#`)) {
+    cleaned = `/${cleaned.slice(pathPrefix.length)}`;
+  }
+
+  // 2. Remover parámetros de búsqueda ?tunnel= o ?_subdomain= si existen
+  try {
+    const urlObj = new URL(cleaned, 'http://localhost');
+    let modified = false;
+
+    if (urlObj.searchParams.has('tunnel')) {
+      urlObj.searchParams.delete('tunnel');
+      modified = true;
+    }
+    if (urlObj.searchParams.has('_subdomain')) {
+      urlObj.searchParams.delete('_subdomain');
+      modified = true;
+    }
+
+    if (modified) {
+      const search = urlObj.searchParams.toString();
+      cleaned = urlObj.pathname + (search ? `?${search}` : '') + (urlObj.hash || '');
+    }
+  } catch (e) {}
+
+  return cleaned || '/';
+};
+
+/**
  * Extrae el subdominio del encabezado HTTP Host o X-Forwarded-Host considerando
- * peticiones directas, proxies inversos (Render, Cloudflare, etc.) y desarrollo local.
+ * peticiones directas, proxies inversos (Render, Cloudflare, etc.), rutas URL (/t/subdominio)
+ * y parámetros (?tunnel=subdominio).
  *
  * @param {string|object} hostHeaderOrReq - Cadena Host o el objeto IncomingMessage (req)
  * @param {string} baseDomain - Dominio base configurado (ej: 'mitunel.dev')
@@ -23,65 +72,103 @@ const getSubdomainFromHost = (hostHeaderOrReq, baseDomain, req) => {
     reqObj = req || null;
   }
 
-  // 1. Obtener host efectivo: preferir X-Forwarded-Host si viene detrás de proxy inverso (Render, Cloudflare)
+  // 1. Prioridad: Cabecera explícita 'x-tunnel-subdomain'
+  if (reqObj && reqObj.headers && reqObj.headers['x-tunnel-subdomain']) {
+    return reqObj.headers['x-tunnel-subdomain'].trim().toLowerCase();
+  }
+
+  // 2. Prioridad: Detección por ruta URL (/t/:subdominio o /t/:subdominio/...)
+  // Solución directa para Render Free Tier (*.onrender.com) sin comodines DNS (Cloudflare Error 1016)
+  if (reqObj && reqObj.url) {
+    const pathMatch = reqObj.url.match(/^\/t\/([a-zA-Z0-9_-]+)(?:\/|\?|#|$)/i);
+    if (pathMatch && pathMatch[1]) {
+      return pathMatch[1].trim().toLowerCase();
+    }
+  }
+
+  // 3. Prioridad: Detección por Query Param (?tunnel=subdominio o ?_subdomain=subdominio)
+  if (reqObj && reqObj.url) {
+    try {
+      const urlObj = new URL(reqObj.url, 'http://localhost');
+      if (urlObj.searchParams.has('tunnel')) {
+        const val = urlObj.searchParams.get('tunnel');
+        if (val && val.trim()) return val.trim().toLowerCase();
+      }
+      if (urlObj.searchParams.has('_subdomain')) {
+        const val = urlObj.searchParams.get('_subdomain');
+        if (val && val.trim()) return val.trim().toLowerCase();
+      }
+    } catch (e) {}
+  }
+
+  // 4. Prioridad: Encabezado Host o X-Forwarded-Host (para dominios con DNS wildcard propio)
   if (reqObj && reqObj.headers) {
     const xForwardedHost = reqObj.headers['x-forwarded-host'];
     if (xForwardedHost) {
-      // Si hay múltiples proxies encadenados separados por coma, tomar el primero
       rawHost = xForwardedHost.split(',')[0].trim();
     } else if (!rawHost && reqObj.headers.host) {
       rawHost = reqObj.headers.host;
     }
+  }
 
-    // Cabecera opcional explícita para debug o pruebas
-    if (reqObj.headers['x-tunnel-subdomain']) {
-      return reqObj.headers['x-tunnel-subdomain'].trim().toLowerCase();
+  if (rawHost) {
+    const cleanHost = rawHost.split(':')[0].trim().toLowerCase();
+    const cleanBase = (baseDomain || 'mitunel.dev').split(':')[0].trim().toLowerCase();
+
+    // Descartar dominio raíz o direcciones locales/Render sin subdominio
+    const isRootOrDirect =
+      cleanHost === cleanBase ||
+      cleanHost === 'localhost' ||
+      cleanHost === '127.0.0.1' ||
+      cleanHost === 'mitunel-proxy.onrender.com' ||
+      (cleanHost.endsWith('.onrender.com') && cleanHost.split('.').length <= 3);
+
+    if (!isRootOrDirect) {
+      // Subdominio sobre el dominio base configurado (ej: myapp.mitunel.dev -> myapp)
+      if (cleanHost.endsWith(`.${cleanBase}`)) {
+        const sub = cleanHost.slice(0, -(cleanBase.length + 1));
+        if (sub) return sub;
+      }
+
+      // Subdominio sobre mitunel-proxy.onrender.com (si existiera DNS wildcard)
+      if (cleanHost.endsWith('.mitunel-proxy.onrender.com')) {
+        const sub = cleanHost.slice(0, -'.mitunel-proxy.onrender.com'.length);
+        if (sub) return sub;
+      }
+
+      // Subdominio para pruebas en local (ej: test.localhost -> test)
+      if (cleanHost.endsWith('.localhost')) {
+        const sub = cleanHost.slice(0, -'.localhost'.length);
+        if (sub) return sub;
+      }
     }
+  }
 
-    // Compatibilidad fallback con query param _subdomain
-    if (reqObj.url) {
-      try {
-        const urlObj = new URL(reqObj.url, 'http://localhost');
-        if (urlObj.searchParams.has('_subdomain')) {
-          return urlObj.searchParams.get('_subdomain').trim().toLowerCase();
-        }
-      } catch (e) {}
+  // 5. Fallback: Encabezado Referer (para assets como /styles.css, /bundle.js solicitados desde /t/<subdomain>)
+  if (reqObj && reqObj.headers && reqObj.headers.referer) {
+    try {
+      const refUrl = new URL(reqObj.headers.referer);
+      const pathMatch = refUrl.pathname.match(/^\/t\/([a-zA-Z0-9_-]+)(?:\/|\?|#|$)/i);
+      if (pathMatch && pathMatch[1]) {
+        return pathMatch[1].trim().toLowerCase();
+      }
+      if (refUrl.searchParams.has('tunnel')) {
+        const val = refUrl.searchParams.get('tunnel');
+        if (val && val.trim()) return val.trim().toLowerCase();
+      }
+    } catch (e) {}
+  }
+
+  // 6. Fallback: Cookie de túnel previa (permite navegación interna en apps sin subdominio)
+  if (reqObj && reqObj.headers && reqObj.headers.cookie) {
+    const match = reqObj.headers.cookie.match(/(?:^|;\s*)mitunel_tunnel=([a-zA-Z0-9_-]+)/i);
+    if (match && match[1]) {
+      // No usar cookie si la petición es intencionalmente a la raíz / sin referer (ej. abrir la home del gateway)
+      const isGatewayRoot = (reqObj.url === '/' || reqObj.url === '') && !reqObj.headers.referer;
+      if (!isGatewayRoot) {
+        return match[1].trim().toLowerCase();
+      }
     }
-  }
-
-  if (!rawHost) return null;
-
-  // 2. Limpiar puerto si existe (ej. xyz.mitunel.dev:8080 -> xyz.mitunel.dev)
-  const cleanHost = rawHost.split(':')[0].trim().toLowerCase();
-  const cleanBase = (baseDomain || 'mitunel.dev').split(':')[0].trim().toLowerCase();
-
-  // 3. Descartar dominio raíz o direcciones locales/Render sin subdominio
-  if (
-    cleanHost === cleanBase ||
-    cleanHost === 'localhost' ||
-    cleanHost === '127.0.0.1' ||
-    cleanHost === 'mitunel-proxy.onrender.com' ||
-    (cleanHost.endsWith('.onrender.com') && cleanHost.split('.').length <= 3)
-  ) {
-    return null; // Es el dominio raíz
-  }
-
-  // 4. Subdominio sobre el dominio base configurado (ej: myapp.mitunel.dev -> myapp)
-  if (cleanHost.endsWith(`.${cleanBase}`)) {
-    const sub = cleanHost.slice(0, -(cleanBase.length + 1));
-    return sub || null;
-  }
-
-  // 5. Subdominio sobre mitunel-proxy.onrender.com
-  if (cleanHost.endsWith('.mitunel-proxy.onrender.com')) {
-    const sub = cleanHost.slice(0, -'.mitunel-proxy.onrender.com'.length);
-    return sub || null;
-  }
-
-  // 6. Subdominio para pruebas en local (ej: test.localhost -> test)
-  if (cleanHost.endsWith('.localhost')) {
-    const sub = cleanHost.slice(0, -'.localhost'.length);
-    return sub || null;
   }
 
   return null;
@@ -246,12 +333,15 @@ const createHttpProxyHandler = (baseDomain, pricingUrl) => {
       const bodyBuffer = Buffer.concat(bodyChunks);
       const requestId = crypto.randomUUID();
 
+      // Limpiar URL para que el servidor local reciba la ruta original (/ en lugar de /t/355fbe6c)
+      const targetUrl = stripTunnelFromUrl(req.url, subdomain);
+
       // Preparar payload para enviar por WebSocket al CLI
       const requestPayload = {
         type: MESSAGE_TYPES.HTTP_REQUEST,
         id: requestId,
         method: req.method,
-        url: req.url,
+        url: targetUrl,
         headers: req.headers,
         body: bodyBuffer.toString('base64'),
       };
@@ -264,8 +354,20 @@ const createHttpProxyHandler = (baseDomain, pricingUrl) => {
         // Esperar la respuesta del CLI
         const responseData = await responsePromise;
 
+        // Inyectar cookie de túnel para que peticiones subsiguientes de assets (/main.js, /style.css) encuentren el túnel
+        const finalHeaders = { ...(responseData.headers || {}) };
+        const tunnelCookie = `mitunel_tunnel=${subdomain}; Path=/; SameSite=Lax`;
+        const existingCookie = finalHeaders['set-cookie'];
+        if (!existingCookie) {
+          finalHeaders['set-cookie'] = [tunnelCookie];
+        } else if (Array.isArray(existingCookie)) {
+          finalHeaders['set-cookie'] = [...existingCookie, tunnelCookie];
+        } else {
+          finalHeaders['set-cookie'] = [existingCookie, tunnelCookie];
+        }
+
         // Escribir cabeceras de respuesta al cliente HTTP
-        res.writeHead(responseData.statusCode, responseData.headers);
+        res.writeHead(responseData.statusCode, finalHeaders);
 
         const resBodyBuffer = responseData.body ? Buffer.from(responseData.body, 'base64') : Buffer.alloc(0);
         res.end(resBodyBuffer);
@@ -308,4 +410,5 @@ const createHttpProxyHandler = (baseDomain, pricingUrl) => {
 module.exports = {
   createHttpProxyHandler,
   getSubdomainFromHost,
+  stripTunnelFromUrl,
 };

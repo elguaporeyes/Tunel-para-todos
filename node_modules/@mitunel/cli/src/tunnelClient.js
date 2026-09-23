@@ -43,8 +43,35 @@ const startTunnel = (options) => {
 
       switch (msg.type) {
         case MESSAGE_TYPES.AUTH_SUCCESS: {
+          let publicUrl = msg.publicUrl;
+
+          // Si el servidor es de Render (*.onrender.com) o publicUrl apunta a subdominio .onrender.com,
+          // formatear a ruta directa /t/<subdominio> para evitar el Error 1016 de Cloudflare (DNS Origin error)
+          const isRender = (serverUrl && serverUrl.includes('.onrender.com')) || (publicUrl && publicUrl.includes('.onrender.com'));
+          if (isRender && msg.subdomain) {
+            let baseHost = 'mitunel-proxy.onrender.com';
+            try {
+              const parsedServer = new URL(serverUrl.replace(/^ws/i, 'http'));
+              baseHost = parsedServer.host;
+            } catch (e) {
+              if (publicUrl) {
+                try {
+                  const parsedPublic = new URL(publicUrl.replace(/^ws/i, 'http'));
+                  const parts = parsedPublic.hostname.split('.');
+                  if (parts.length > 3) {
+                    baseHost = parts.slice(1).join('.');
+                  } else {
+                    baseHost = parsedPublic.host;
+                  }
+                } catch (e2) {}
+              }
+            }
+            // En Render siempre se utiliza HTTPS para el tráfico público web seguro
+            publicUrl = `https://${baseHost}/t/${msg.subdomain}`;
+          }
+
           ui.setSession({
-            publicUrl: msg.publicUrl,
+            publicUrl,
             localPort,
             subdomain: msg.subdomain,
             isPremium: msg.isPremium,
