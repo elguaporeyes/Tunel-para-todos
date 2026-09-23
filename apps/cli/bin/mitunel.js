@@ -40,10 +40,14 @@ program
       'https://tunel-para-todos.onrender.com'
     ).replace(/\/+$/, '');
 
-    // Construcción del payload: se envía { email } y opcionalmente name o password si se indicaron
-    const payloadData = { email: trimmedEmail };
-    if (options.name) payloadData.name = options.name.trim();
-    if (options.password) payloadData.password = options.password;
+    // Construcción del payload retrocompatible: siempre envía name, email y password
+    // para funcionar tanto con la versión anterior del backend (que exige los 3 campos)
+    // como con la nueva (que los hace opcionales).
+    const payloadData = {
+      email: trimmedEmail,
+      name: (options.name && options.name.trim()) ? options.name.trim() : trimmedEmail.split('@')[0],
+      password: options.password || `Mitunel_${crypto.randomBytes(6).toString('hex')}!`,
+    };
     const payload = JSON.stringify(payloadData);
 
     let url;
