@@ -72,6 +72,10 @@ class TunnelUI {
     console.log(`${colors.cyan}${colors.bright}========================================================================${colors.reset}`);
     console.log(`  ${colors.bright}Estado:${colors.reset}           ${colors.green}● En Línea${colors.reset}`);
     console.log(`  ${colors.bright}Túnel Público:${colors.reset}    ${colors.bright}${colors.cyan}${publicUrl}${colors.reset}`);
+    if (publicUrl && publicUrl.includes('/t/')) {
+      const paramUrl = publicUrl.replace(/\/t\/[^/?#]+/, '') + `?tunnel=${subdomain}`;
+      console.log(`  ${colors.dim}URL con parámetro:${colors.reset} ${colors.dim}${paramUrl}${colors.reset}`);
+    }
     console.log(`  ${colors.bright}Servicio Local:${colors.reset}   ${colors.yellow}http://localhost:${localPort}${colors.reset}`);
     console.log(`  ${colors.bright}Subdominio:${colors.reset}       ${subdomain}`);
     console.log(`  ${colors.bright}Créditos:${colors.reset}         ${creditsDisplay}`);

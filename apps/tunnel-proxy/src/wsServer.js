@@ -23,7 +23,16 @@ const setupWebSocketServer = (server) => {
 
     const baseDomain = process.env.BASE_DOMAIN || 'mitunel.dev';
     const protocol = process.env.PUBLIC_PROTOCOL || 'http';
-    const publicUrl = `${protocol}://${subdomain}.${baseDomain}`;
+    let publicUrl;
+
+    if (baseDomain.includes('onrender.com') || process.env.RENDER === 'true') {
+      // En Render (*.onrender.com), no hay wildcard DNS para subdominios dinámicos (Error 1016 en Cloudflare).
+      // Generamos la URL pública en formato de ruta directa segura: https://mitunel-proxy.onrender.com/t/<subdomain>
+      const cleanBase = baseDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+      publicUrl = `https://${cleanBase}/t/${subdomain}`;
+    } else {
+      publicUrl = `${protocol}://${subdomain}.${baseDomain}`;
+    }
 
     // Confirmar conexión exitosa al CLI
     ws.send(
