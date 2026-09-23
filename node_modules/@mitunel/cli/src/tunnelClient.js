@@ -13,8 +13,28 @@ const startTunnel = (options) => {
 
   const ws = new WebSocket(wsUrl);
 
+  // Keep-alive: enviar ping cada 30 segundos para evitar que servicios en la
+  // nube (Render, Heroku, etc.) cierren la conexión WebSocket por inactividad.
+  let keepAliveInterval = null;
+
+  const clearKeepAlive = () => {
+    if (keepAliveInterval) {
+      clearInterval(keepAliveInterval);
+      keepAliveInterval = null;
+    }
+  };
+
   ws.on('open', () => {
-    // Conexión socket abierta; esperando confirmación AUTH_SUCCESS
+    // Iniciar ping periódico al abrirse la conexión
+    keepAliveInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      }
+    }, 30000);
+  });
+
+  ws.on('pong', () => {
+    // Heartbeat confirmado por el servidor proxy
   });
 
   ws.on('message', async (data) => {
@@ -87,6 +107,7 @@ const startTunnel = (options) => {
   });
 
   ws.on('close', (code, reason) => {
+    clearKeepAlive();
     if (code === 4402) {
       ui.showCreditsExhaustedAlert(pricingUrl);
     } else if (code !== 1000) {
@@ -96,6 +117,7 @@ const startTunnel = (options) => {
   });
 
   ws.on('error', (err) => {
+    clearKeepAlive();
     console.error(`\n❌ Error en conexión de túnel: ${err.message}`);
     process.exit(1);
   });

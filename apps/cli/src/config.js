@@ -2,7 +2,20 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const CONFIG_FILE = path.join(os.homedir(), '.mitunelrc');
+// El directorio de configuración siempre vive en el Home del usuario
+// (~/.mitunel/) para que sobreviva actualizaciones o reinstalaciones del .exe.
+// Puede sobreescribirse con la variable de entorno MITUNEL_CONFIG_DIR.
+const CONFIG_DIR = process.env.MITUNEL_CONFIG_DIR || path.join(os.homedir(), '.mitunel');
+const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+
+// Asegurar que el directorio exista (se crea en la primera ejecución)
+try {
+  if (!fs.existsSync(CONFIG_DIR)) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  }
+} catch (err) {
+  // En casos muy extremos (permisos), no abortar: operar sin persistencia
+}
 
 const loadConfig = () => {
   try {
@@ -36,6 +49,7 @@ const getAuthToken = () => {
 };
 
 module.exports = {
+  CONFIG_DIR,
   CONFIG_FILE,
   loadConfig,
   saveConfig,
