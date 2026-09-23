@@ -7,9 +7,36 @@ const HTTP_PORT = process.env.PORT || process.env.HTTP_PORT || 8080;
 const BASE_DOMAIN = process.env.BASE_DOMAIN || 'mitunel.dev';
 const PRICING_URL = process.env.PRICING_URL || 'https://mitunel.dev/pricing';
 
-// Crear el servidor HTTP Edge
+// Crear el manejador central del proxy
 const proxyHandler = createHttpProxyHandler(BASE_DOMAIN, PRICING_URL);
-const server = http.createServer(proxyHandler);
+
+// Servidor HTTP Edge con extracción de túnel por ?tunnel=, /t/ o cabecera
+const server = http.createServer((req, res) => {
+  const host = req.headers.host || '';
+  let tunnelId = null;
+
+  try {
+    const parsedUrl = new URL(req.url, `http://${host}`);
+
+    // Extraer el ID del túnel desde Query Param (?tunnel=...) o desde la Ruta (/t/...)
+    tunnelId = parsedUrl.searchParams.get('tunnel');
+
+    if (!tunnelId) {
+      const pathSegments = parsedUrl.pathname.split('/').filter(Boolean);
+      if (pathSegments[0] === 't' && pathSegments[1]) {
+        tunnelId = pathSegments[1];
+      }
+    }
+  } catch (e) {}
+
+  // Si no viene en la URL, intentar por cabecera
+  if (!tunnelId) {
+    tunnelId = req.headers['x-tunnel-id'] || req.headers['x-tunnel-subdomain'];
+  }
+
+  // Delegar al manejador central del proxy (resuelve WebSocket, reenvía al CLI y gestiona respuestas)
+  return proxyHandler(req, res);
+});
 
 // Configurar servidor WebSocket para túneles entrantes
 const wsManager = setupWebSocketServer(server);
