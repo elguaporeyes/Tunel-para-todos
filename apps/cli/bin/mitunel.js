@@ -18,25 +18,45 @@ const crypto = require('crypto');
 // Comando: mitunel register <email>
 program
   .command('register <email>')
-  .description('Crea una cuenta nueva y guarda el token automáticamente')
-  .option('-p, --password <password>', 'Contraseña para la cuenta')
-  .option('-n, --name <name>', 'Nombre de usuario')
-  .option('--api <apiUrl>', 'URL del servidor de autenticación (Control Plane)', 'https://tunel-para-todos.onrender.com')
+  .description('Crea una cuenta nueva y guarda el token de autenticación automáticamente')
+  .option('-p, --password <password>', 'Contraseña para la cuenta (opcional)')
+  .option('-n, --name <name>', 'Nombre de usuario (opcional)')
+  .option('--server <serverUrl>', 'URL del servidor de autenticación (Control Plane)')
+  .option('--api <apiUrl>', 'Alias de --server')
   .action(async (email, options) => {
     if (!email || !email.includes('@')) {
       console.error('\n❌ Por favor especifica un correo electrónico válido.');
       process.exit(1);
     }
 
-    const name = options.name || email.split('@')[0];
-    const password = options.password || `Mitunel_${crypto.randomBytes(4).toString('hex')}!`;
-    const payload = JSON.stringify({ name, email, password });
+    const trimmedEmail = email.trim().toLowerCase();
+    const config = loadConfig();
+    const serverUrl = (
+      options.server ||
+      options.api ||
+      process.env.SERVER_URL ||
+      process.env.CONTROL_PLANE_URL ||
+      config.controlPlaneUrl ||
+      'https://tunel-para-todos.onrender.com'
+    ).replace(/\/+$/, '');
 
-    const apiUrl = options.api.replace(/\/+$/, '');
-    const url = new URL(`${apiUrl}/api/auth/register`);
+    // Construcción del payload: se envía { email } y opcionalmente name o password si se indicaron
+    const payloadData = { email: trimmedEmail };
+    if (options.name) payloadData.name = options.name.trim();
+    if (options.password) payloadData.password = options.password;
+    const payload = JSON.stringify(payloadData);
+
+    let url;
+    try {
+      url = new URL(`${serverUrl}/api/auth/register`);
+    } catch (e) {
+      console.error(`\n❌ URL del servidor inválida: ${serverUrl}`);
+      process.exit(1);
+    }
+
     const client = url.protocol === 'https:' ? https : http;
 
-    console.log(`\nCreando cuenta para ${email}...`);
+    console.log(`\n⏳ Creando cuenta para ${trimmedEmail}...`);
 
     const req = client.request(
       url,
@@ -55,15 +75,32 @@ program
         res.on('end', () => {
           try {
             const data = JSON.parse(rawData);
-            if (res.statusCode >= 200 && res.statusCode < 300 && data.success && data.apiKey) {
-              setAuthToken(data.apiKey);
-              console.log(`\n🎉 ¡Cuenta registrada exitosamente!`);
-              console.log(`   Email:        ${email}`);
-              console.log(`   API Key:      ${data.apiKey}`);
-              console.log(`   Contraseña:   ${password}`);
-              console.log(`   Créditos:     ${data.user?.weeklyCredits ?? 100} créditos semanales`);
-              console.log(`\n💾 Token guardado automáticamente en: ${CONFIG_FILE}`);
-              console.log(`👉 Ya puedes iniciar tu túnel con: mitunel http 3000\n`);
+            const token = data.token || data.apiKey;
+
+            if (res.statusCode === 409) {
+              console.log(`\n⚠️  ${data.error || 'Ya existe una cuenta registrada con este correo electrónico.'}`);
+              if (data.tokenResent) {
+                console.log(`📧 ${data.message || 'Se ha reenviado tu Token de Autenticación a tu correo registrado.'}`);
+                console.log(`👉 Revisa tu bandeja de entrada en ${trimmedEmail} y configúralo ejecutando:`);
+                console.log(`   mitunel authtoken <TU_TOKEN>\n`);
+              }
+              process.exit(0);
+            }
+
+            if (res.statusCode >= 200 && res.statusCode < 300 && data.success && token) {
+              // Guardar automáticamente el token en la configuración local (~/.mitunel/config.json)
+              setAuthToken(token);
+
+              console.log(`\n🎉 ¡Cuenta creada exitosamente!`);
+              console.log(`   Email:        ${trimmedEmail}`);
+              console.log(`   Token:        ${token}`);
+              console.log(`   Créditos:     ${data.user?.weeklyCredits ?? 100} créditos semanales gratuitos`);
+              console.log(`\n💾 Token guardado automáticamente en tu configuración local:`);
+              console.log(`   ${CONFIG_FILE}`);
+              console.log(`\n📧 Se ha enviado un correo de bienvenida con una copia de tu Token y detalles a:`);
+              console.log(`   ${trimmedEmail}`);
+              console.log(`\n👉 Ya puedes iniciar tu primer túnel ejecutando:`);
+              console.log(`   mitunel http 3000\n`);
             } else {
               console.error(`\n❌ Error al registrar cuenta: ${data.error || 'Respuesta inválida del servidor'}\n`);
               process.exit(1);
@@ -77,7 +114,7 @@ program
     );
 
     req.on('error', (err) => {
-      console.error(`\n❌ Error de red al contactar ${apiUrl}:`, err.message);
+      console.error(`\n❌ Error de red al contactar el servidor (${serverUrl}):`, err.message);
       process.exit(1);
     });
 

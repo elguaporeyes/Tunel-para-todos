@@ -1,52 +1,80 @@
 # 🚇 MiTunel - Servicio de Tunelización Localhost a Red Pública
 
-Plataforma completa de proxy inverso y tunelización segura (alternativa a ngrok / LocalTunnel) construida en Node.js con modelo de negocio **Freemium**, sistema de créditos semanales recargables y suscripciones Premium vía Stripe.
+Plataforma completa de proxy inverso y tunelización segura (alternativa moderna a ngrok y LocalTunnel) construida en Node.js con modelo **Freemium**, sistema de créditos semanales recargables, notificaciones por correo y suscripciones Premium vía Stripe.
 
 ---
 
-## 🚀 Inicio Rápido con el Ejecutable Windows (`mitunel.exe`)
+## 🚀 Instalación e Inicio Rápido
 
-> **No necesitas Node.js instalado.** Descarga el binario y úsalo directamente desde la terminal.
+**MiTunel** te permite exponer tu servidor local a internet en segundos, con asignación automática de tokens y 100 créditos semanales gratuitos.
 
-### Paso 1 — Crear tu cuenta y obtener tu API Key
+---
 
-El ejecutable incluye registro directo desde la consola sin necesidad de herramientas externas:
+### 📦 1. Instalación
 
-```powershell
-.\mitunel.exe register tu@email.com
+#### Opción A: Descargar el ejecutable binario (Recomendado para Windows)
+Descarga el ejecutable standalone `mitunel.exe` desde las **Releases** del repositorio (o compílalo localmente en `apps/cli/dist/mitunel.exe`) y colócalo en una carpeta incluida en tu `PATH` (por ejemplo, `C:\Windows\System32` o una carpeta personalizada de binarios).
+
+Para verificar la instalación:
+```bash
+mitunel --help
 ```
 
-El comando creará tu cuenta en la nube, generará tu clave (`tk_live_...`) y la guardará automáticamente en tu sistema con **100 créditos semanales gratuitos**.
+#### Opción B: Uso directo con Node.js (Multiplataforma: Windows, Linux, macOS)
+Si tienes Node.js 18+ instalado, puedes clonar el repositorio y usar el CLI directamente:
+```bash
+# Desde la raíz del proyecto
+npm run cli -- --help
 
-> Si ya dispones de una cuenta previa creada en [https://tunel-para-todos.onrender.com](https://tunel-para-todos.onrender.com), puedes vincular tu token manualmente siguiendo el Paso 2. *(Si utilizaste `mitunel register`, este paso ya se realizó de forma automática).*
-
-### Paso 2 — Guardar tu API Key en el sistema (Opcional si usaste register)
-
-```powershell
-.\mitunel.exe authtoken tk_live_xxxxxxxxxxxxxxxxxxxxxxxx
+# O usando el archivo ejecutable de Node:
+node apps/cli/bin/mitunel.js --help
 ```
 
-El token queda guardado de forma segura en `%USERPROFILE%\.mitunel\config.json`. **Sobrevive actualizaciones del .exe.**
+---
 
-### Paso 3 — Iniciar tu servidor local de prueba
+### ⚡ 2. Inicio Rápido en 3 Pasos
 
-Si no tienes una aplicación corriendo, puedes usar el servidor de ejemplo incluido en el proyecto:
+#### Paso 1 — Crear tu cuenta y obtener tu Token automáticamente
+No necesitas abrir el navegador ni configurar contraseñas complejas. Ejecuta en tu terminal:
 
-```powershell
-# Con Node.js instalado:
+```bash
+mitunel register tu-correo@ejemplo.com
+```
+
+**¿Qué ocurre internamente?**
+1. El CLI se comunica de forma segura con el Control Plane (`/api/auth/register`).
+2. Se genera tu API Token único de autenticación (`tk_live_...`).
+3. Se asignan **100 créditos semanales gratuitos** a tu cuenta.
+4. El token se almacena de forma segura y automática en tu configuración local:
+   - **Windows:** `%USERPROFILE%\.mitunel\config.json`
+   - **Linux / macOS:** `~/.mitunel/config.json`
+5. Recibes un **correo electrónico de bienvenida con diseño HTML limpio** y soporte Multi-part MIME que incluye tu token, tus créditos y los comandos de inicio rápido.
+6. *Resiliencia para usuarios existentes:* Si tu correo ya estaba registrado en el sistema, la API responde amigablemente y reenvía tu token activo a tu bandeja de entrada.
+
+> *(Opcional)* Si ya disponías de un token generado anteriormente, puedes guardarlo manualmente ejecutando:
+> ```bash
+> mitunel authtoken tk_live_xxxxxxxxxxxxxxxxxxxxxxxx
+> ```
+
+---
+
+#### Paso 2 — Iniciar tu servidor o servicio local
+Asegúrate de que tu aplicación o servidor web esté corriendo localmente. Si no tienes uno a mano, puedes usar el servidor de demostración incluido:
+
+```bash
+# Servidor de prueba en el puerto 3000
 node apps/hello-world.js
-
-# O cualquier servidor tuyo en cualquier puerto, por ejemplo React:
-npm start
 ```
 
-### Paso 4 — Abrir el túnel público
+---
 
-```powershell
-.\mitunel.exe http 3000
+#### Paso 3 — Abrir el túnel seguro hacia internet
+
+```bash
+mitunel http 3000
 ```
 
-La consola mostrará la URL pública asignada y el panel de tráfico en tiempo real:
+¡Listo! La terminal mostrará tu URL pública segura con HTTPS y el panel de tráfico en tiempo real:
 
 ```text
 ========================================================================
@@ -65,88 +93,98 @@ La consola mostrará la URL pública asignada y el panel de tráfico en tiempo r
 ========================================================================
 ```
 
-### Paso 5 — Compartir la URL pública
-
-Comparte la URL del paso anterior con quien necesites. Dado que Render proporciona certificados SSL automáticos, la URL funciona de forma segura sobre **`https://`** (así como sobre `http://`). Todas las peticiones entrarán por `mitunel-proxy.onrender.com`, pasarán por el túnel WebSocket y llegarán a tu `localhost:3000`.
-
-> **💡 Tip:** Para mantener el túnel activo de forma permanente, el cliente incluye un **keep-alive automático de ping cada 30 segundos** que evita desconexiones por inactividad en plataformas cloud (Render, Heroku, Railway, etc.).
-
-### 💡 Instalación Global (Opcional)
-
-Para ejecutar `mitunel` desde cualquier carpeta sin anteponer `.\`:
-1. Mueve `mitunel.exe` a `C:\Windows\System32\Mitunel\` (o cualquier carpeta en tu PATH).
-2. ¡Listo! Ya puedes usar simplemente `mitunel http 3000` en cualquier terminal.
+> **💡 Tip de Conectividad:** El cliente CLI cuenta con un mecanismo de **keep-alive inteligente** (ping automático cada 30 segundos) que previene desconexiones por inactividad impuestas por proxies en la nube como Render, Cloudflare o Nginx.
 
 ---
 
-## 📦 Opciones Avanzadas del CLI
+## 🛠️ Comandos Disponibles en la CLI
 
 | Comando | Descripción |
 |---|---|
-| `mitunel.exe register <EMAIL>` | Crea una cuenta nueva y guarda el token automáticamente |
-| `mitunel.exe authtoken <KEY>` | Guarda tu API Key en `~/.mitunel/config.json` |
-| `mitunel.exe http <PUERTO>` | Abre un túnel HTTP hacia el puerto local especificado |
-| `mitunel.exe http <PUERTO> --subdomain mi-app` | Subdominio personalizado (Plan Premium) |
-| `mitunel.exe http <PUERTO> --server <URL>` | Usar un servidor proxy personalizado |
-| `mitunel.exe --help` | Mostrar ayuda completa |
-| `mitunel.exe --version` | Mostrar versión del cliente |
+| `mitunel register <email>` | Crea una cuenta nueva, asigna 100 créditos y guarda el token automáticamente |
+| `mitunel authtoken <TOKEN>` | Configura manualmente tu token (`tk_live_...`) en `~/.mitunel/config.json` |
+| `mitunel http <PUERTO>` | Inicia el túnel HTTP/WebSocket hacia el puerto local indicado |
+| `mitunel http <PUERTO> --subdomain <nombre>` | Solicita un subdominio personalizado fijo (Requiere plan Premium) |
+| `mitunel http <PUERTO> --server <URL>` | Conecta a un servidor de tunelización personalizado |
+| `mitunel --help` | Muestra la ayuda general y opciones |
+| `mitunel --version` | Muestra la versión actual de la herramienta |
 
 ---
 
-## 🏗️ Arquitectura del Sistema
-
-El monorepo está organizado en workspaces independientes:
+## 🏗️ Estructura del Monorepo
 
 ```
 tuneling-para-todos/
 ├── apps/
-│   ├── control-plane/     # Backend REST API (Auth JWT, Créditos, Webhook Stripe, MongoDB)
+│   ├── control-plane/     # Backend REST API (Auth, Email Service, Créditos, Stripe, MongoDB)
+│   │   ├── src/controllers/  # Controladores (authController con register y login)
+│   │   ├── src/services/     # Servicios (emailService con Nodemailer y cronService)
+│   │   └── src/models/       # Modelos Mongoose (User, ApiKey)
 │   ├── tunnel-proxy/      # Edge Server HTTP + WebSocket Gateway (Enrutamiento por subdominio)
-│   ├── cli/               # Binario ejecutable 'mitunel' para consola con TUI en tiempo real
-│   └── hello-world.js     # Servidor de prueba "Hello World" en puerto 3000
+│   ├── cli/               # Cliente de consola en Node.js empaquetable en binario .exe con 'pkg'
+│   │   ├── bin/mitunel.js    # Punto de entrada de comandos CLI
+│   │   ├── src/config.js     # Manejo seguro y tolerante a fallos de ~/.mitunel/config.json
+│   │   └── dist/mitunel.exe  # Binario standalone ejecutable en Windows x64
+│   └── hello-world.js     # Servidor local de prueba en el puerto 3000
 ├── packages/
-│   └── common/            # Protocolo de multiplexación y constantes compartidas
-├── deployment/            # Configuración Nginx para SSL Wildcard (*.tudominio.com)
-├── docs/                  # Guía de despliegue en servidor VPS
-└── docker-compose.yml     # Orquestación de desarrollo y producción
+│   └── common/            # Constantes compartidas, códigos de error y protocolo multiplexado
+├── deployment/            # Configuración Nginx para certificados Wildcard (*.tudominio.com)
+├── docs/                  # Documentación y guía de despliegue en VPS
+└── docker-compose.yml     # Orquestación de contenedores en desarrollo y producción
 ```
 
 ---
 
-## ⚡ Desarrollo Local (para Contribuidores)
+## 📧 Configuración del Servicio de Correos (Control Plane)
 
-### Requisitos
-- Node.js 18+ 
-- Docker y Docker Compose (para MongoDB local)
+El backend de `apps/control-plane` utiliza **Nodemailer** para la entrega de correos electrónicos transaccionales (bienvenida, entrega de tokens y recuperación de credenciales).
 
-### Levantar el entorno completo
-
-```bash
-# 1. MongoDB local
-docker compose up -d mongodb
-
-# 2. Copiar variables de entorno
-cp apps/control-plane/.env.example apps/control-plane/.env
-cp apps/tunnel-proxy/.env.example apps/tunnel-proxy/.env
-
-# 3. Instalar dependencias
-npm install
-
-# Terminal 1: Control Plane & Billing API (Puerto 4000)
-npm run dev:control-plane
-
-# Terminal 2: Edge Tunnel Proxy (Puerto 8080)
-npm run dev:proxy
-
-# Terminal 3: Servidor de prueba Hello World (Puerto 3000)
-npm run start:hello
+En `apps/control-plane/.env`:
+```env
+# Configuración SMTP (Gmail, Brevo, SendGrid, Resend SMTP, Mailtrap, etc.)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=tu-correo@gmail.com
+SMTP_PASS=tu-contraseña-de-aplicacion
+EMAIL_FROM="MiTunel" <no-reply@mitunel.dev>
 ```
 
-### Compilar el ejecutable Windows
+> **🛡️ Tolerancia a Fallos en Desarrollo:** Si las variables SMTP no están definidas, el sistema opera en modo seguro de desarrollo, simulando el envío e imprimiendo el token en la consola del servidor sin bloquear ni interrumpir el registro del usuario.
+
+---
+
+## ⚡ Desarrollo Local y Contribución
+
+### Requisitos Previos
+- Node.js 18 o superior
+- npm 9 o superior
+- Docker y Docker Compose (opcional para MongoDB local)
+
+### Puesta en Marcha
 
 ```bash
+# 1. Instalar todas las dependencias del monorepo
+npm install
+
+# 2. Levantar la base de datos local con Docker (o usar MongoDB Atlas)
+docker compose up -d mongodb
+
+# 3. Iniciar el Control Plane (API en http://localhost:4000)
+npm run dev:control-plane
+
+# 4. Iniciar el Edge Tunnel Proxy (Gateway en http://localhost:8080)
+npm run dev:proxy
+
+# 5. Ejecutar la suite de pruebas unitarias y de integración
+node --test test/system.test.js
+```
+
+### Compilar el Ejecutable para Windows
+
+Para compilar el binario standalone `mitunel.exe` en `apps/cli/dist/`:
+```bash
 npm run build:cli-exe
-# Genera: apps/cli/dist/mitunel.exe
 ```
 
 ---
@@ -154,31 +192,27 @@ npm run build:cli-exe
 ## 💳 Modelo Freemium y Facturación
 
 1. **Free Tier:**
-   - 100 créditos semanales asignados automáticamente.
-   - Restablecimiento automático mediante Cron Job cada **7 días a las 00:00 UTC**.
-   - Al agotarse los créditos, el proxy responde con `HTTP 402 Payment Required` y la CLI muestra un aviso con enlace de actualización.
+   - **100 créditos semanales** asignados automáticamente al registrarse.
+   - Restablecimiento automático mediante un Cron Job cada **7 días a las 00:00 UTC**.
+   - Al agotarse los créditos, el proxy responde con `HTTP 402 Payment Required` y la CLI notifica al usuario con un enlace para recargar o actualizar su cuenta.
 
 2. **Premium Tier ($/mes vía Stripe):**
-   - Créditos y horas de conexión ilimitadas.
-   - Reserva de subdominios fijos garantizados (`mi-empresa.tudominio.com`).
-   - Gestión de suscripción vía Stripe Customer Portal.
+   - Conexiones y créditos ilimitados.
+   - Reserva de subdominios fijos garantizados (`mi-proyecto.mitunel.dev`).
+   - Portal de gestión de suscripciones integrado con Stripe Customer Portal.
 
 ---
 
-## 🌐 Despliegue en Producción (VPS o Render)
+## 🌐 Despliegue en la Nube
 
-Consulta la [Guía Completa de Despliegue en VPS](./docs/VPS_DEPLOYMENT_GUIDE.md) para configurar:
-- Registros DNS Wildcard (`*.tudominio.com`).
-- Certificados SSL Wildcard gratuitos con Let's Encrypt / Certbot.
-- Terminador SSL y proxy inverso de alto rendimiento con Nginx.
+Para consultar la configuración de producción en servidores VPS con Nginx y certificados SSL Wildcard de Let's Encrypt, consulta la [Guía Completa de Despliegue en VPS](./docs/VPS_DEPLOYMENT_GUIDE.md).
 
-Para despliegue en **Render.com** los servicios en la nube son:
-- Control Plane: `https://tunel-para-todos.onrender.com`
-- Tunnel Proxy: `https://mitunel-proxy.onrender.com`
+URLs de producción por defecto:
+- **Control Plane API:** `https://tunel-para-todos.onrender.com`
+- **Tunnel Proxy Gateway:** `https://mitunel-proxy.onrender.com`
 
 ---
 
 ## 📄 Licencia
 
-Este proyecto está bajo la Licencia [MIT](LICENSE). Puedes usarlo y modificarlo libremente.
-
+Este proyecto está bajo la Licencia [MIT](LICENSE). Puedes usarlo, adaptarlo y mejorarlo libremente.

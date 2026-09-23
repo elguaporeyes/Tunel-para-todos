@@ -35,7 +35,14 @@ const loadConfig = () => {
 const saveConfig = (newConfig) => {
   const current = loadConfig();
   const merged = { ...current, ...newConfig };
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(merged, null, 2), 'utf8');
+  try {
+    if (!fs.existsSync(CONFIG_DIR)) {
+      fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    }
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(merged, null, 2), 'utf8');
+  } catch (err) {
+    console.error(`⚠️ No se pudo guardar la configuración local en ${CONFIG_FILE}:`, err.message);
+  }
   return merged;
 };
 

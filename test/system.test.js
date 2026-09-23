@@ -41,3 +41,49 @@ test('API Key Token Generation Format', () => {
   const token = ApiKey.generateNewToken();
   assert.match(token, /^tk_live_[a-f0-9]{48}$/);
 });
+
+test('Email Service HTML Template and Welcome Email Dispatch', async () => {
+  const emailService = require('../apps/control-plane/src/services/emailService');
+  const token = 'tk_live_test1234567890abcdef1234567890abcdef';
+  const email = 'developer@example.com';
+  const name = 'Desarrollador';
+  const weeklyCredits = 100;
+
+  const html = emailService.generateWelcomeTemplate({ name, email, apiKey: token, weeklyCredits });
+  
+  assert.ok(html.includes('MiTunel'), 'El HTML debe contener el nombre MiTunel');
+  assert.ok(html.includes(token), 'El HTML debe contener el token generado');
+  assert.ok(html.includes('100'), 'El HTML debe mencionar los 100 créditos');
+  assert.ok(html.includes('mitunel authtoken'), 'El HTML debe incluir la instrucción de CLI');
+
+  const sendResult = await emailService.sendWelcomeEmail({ name, email, apiKey: token, weeklyCredits });
+  assert.equal(sendResult.success, true);
+});
+
+test('Email Service HTML Escaping and Injection Prevention', () => {
+  const emailService = require('../apps/control-plane/src/services/emailService');
+  const maliciousName = '<script>alert("hack")</script>';
+  const maliciousEmail = 'attacker"><script>@test.com';
+
+  const html = emailService.generateWelcomeTemplate({
+    name: maliciousName,
+    email: maliciousEmail,
+    apiKey: 'tk_live_safe123',
+    weeklyCredits: 100,
+  });
+
+  assert.ok(!html.includes('<script>'), 'El HTML no debe contener tags <script> sin escapar');
+  assert.ok(html.includes('&lt;script&gt;'), 'El HTML debe escapar los caracteres especiales');
+});
+
+test('Email Service Token Recovery Dispatch', async () => {
+  const emailService = require('../apps/control-plane/src/services/emailService');
+  const result = await emailService.sendTokenRecoveryEmail({
+    email: 'existing@example.com',
+    name: 'Usuario Existente',
+    apiKey: 'tk_live_recovery987654321',
+    weeklyCredits: 100,
+  });
+  assert.equal(result.success, true);
+});
+

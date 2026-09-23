@@ -1,6 +1,8 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const ApiKey = require('../models/ApiKey');
+const emailService = require('../services/emailService');
 
 const generateJwt = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET || 'secret_fallback', {
@@ -12,19 +14,54 @@ exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ success: false, error: 'Por favor proporcione nombre, email y contraseña' });
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Por favor proporcione un correo electrónico' });
     }
 
-    const existingUser = await User.findOne({ email });
+    const trimmedEmail = email.trim().toLowerCase();
+    const existingUser = await User.findOne({ email: trimmedEmail });
     if (existingUser) {
-      return res.status(400).json({ success: false, error: 'Ya existe una cuenta con este correo electrónico' });
+      // Manejo de cuentas existentes (409 Conflict): Obtener su API key activa y reenviar el token por correo
+      let existingApiKey = await ApiKey.findOne({ user: existingUser._id, isActive: true }).sort({ createdAt: -1 });
+      if (!existingApiKey) {
+        existingApiKey = await ApiKey.create({
+          key: ApiKey.generateNewToken(),
+          user: existingUser._id,
+          name: 'Default CLI Token',
+        });
+      }
+
+      // Desacoplamiento no bloqueante: Reenviar token en segundo plano
+      setImmediate(async () => {
+        try {
+          await emailService.sendTokenRecoveryEmail({
+            email: existingUser.email,
+            name: existingUser.name,
+            apiKey: existingApiKey.key,
+            weeklyCredits: existingUser.weeklyCredits,
+          });
+        } catch (mailErr) {
+          console.error(`[authController] Error asíncrono al reenviar token a ${existingUser.email}:`, mailErr.message);
+        }
+      });
+
+      return res.status(409).json({
+        success: false,
+        code: 'USER_ALREADY_EXISTS',
+        error: 'Ya existe una cuenta registrada con este correo electrónico.',
+        message: 'Hemos reenviado tu Token de Autenticación a tu correo registrado.',
+        tokenResent: true,
+      });
     }
+
+    // Si name o password no vienen proporcionados (ej. registro rápido vía CLI), asignar por defecto
+    const userName = (name && name.trim()) ? name.trim() : trimmedEmail.split('@')[0];
+    const userPassword = password || `Mitunel_${crypto.randomBytes(6).toString('hex')}!`;
 
     const user = await User.create({
-      name,
-      email,
-      password,
+      name: userName,
+      email: trimmedEmail,
+      password: userPassword,
     });
 
     // Crear automáticamente su primer API Token (tk_live_...)
@@ -34,13 +71,29 @@ exports.register = async (req, res) => {
       name: 'Default CLI Token',
     });
 
-    const token = generateJwt(user._id);
+    const jwtToken = generateJwt(user._id);
+
+    // Desacoplamiento No Bloqueante: El correo se dispara en segundo plano de forma asíncrona
+    setImmediate(async () => {
+      try {
+        await emailService.sendWelcomeEmail({
+          email: user.email,
+          name: user.name,
+          apiKey: apiKey.key,
+          weeklyCredits: user.weeklyCredits,
+        });
+      } catch (mailErr) {
+        console.error(`[authController] Error asíncrono al enviar correo de bienvenida a ${user.email}:`, mailErr.message);
+      }
+    });
 
     res.status(201).json({
       success: true,
       message: 'Usuario registrado exitosamente',
-      token,
+      token: apiKey.key,
       apiKey: apiKey.key,
+      jwt: jwtToken,
+      emailDispatched: true,
       user: {
         id: user._id,
         name: user.name,

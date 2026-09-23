@@ -16,6 +16,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.4",
     "node-cron": "^4.6.0",
+    "nodemailer": "^10.0.10",
     "stripe": "^17.4.0"
   }
 }
