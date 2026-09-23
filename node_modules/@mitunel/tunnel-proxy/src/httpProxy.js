@@ -72,33 +72,42 @@ const getSubdomainFromHost = (hostHeaderOrReq, baseDomain, req) => {
     reqObj = req || null;
   }
 
-  // 1. Prioridad: Cabecera explícita 'x-tunnel-subdomain'
-  if (reqObj && reqObj.headers && reqObj.headers['x-tunnel-subdomain']) {
-    return reqObj.headers['x-tunnel-subdomain'].trim().toLowerCase();
-  }
+  if (reqObj) {
+    const host = (reqObj.headers && (reqObj.headers['x-forwarded-host'] || reqObj.headers.host)) || rawHost || 'localhost';
 
-  // 2. Prioridad: Detección por ruta URL (/t/:subdominio o /t/:subdominio/...)
-  // Solución directa para Render Free Tier (*.onrender.com) sin comodines DNS (Cloudflare Error 1016)
-  if (reqObj && reqObj.url) {
-    const pathMatch = reqObj.url.match(/^\/t\/([a-zA-Z0-9_-]+)(?:\/|\?|#|$)/i);
-    if (pathMatch && pathMatch[1]) {
-      return pathMatch[1].trim().toLowerCase();
+    // 1. Extraer el ID del túnel desde Query Param (?tunnel=...) o desde la Ruta (/t/...)
+    if (reqObj.url) {
+      try {
+        const parsedUrl = new URL(reqObj.url, `http://${host.split(',')[0].trim()}`);
+
+        let tunnelId = parsedUrl.searchParams.get('tunnel');
+
+        if (!tunnelId) {
+          const pathSegments = parsedUrl.pathname.split('/').filter(Boolean);
+          if (pathSegments[0] === 't' && pathSegments[1]) {
+            tunnelId = pathSegments[1];
+          }
+        }
+
+        if (!tunnelId) {
+          tunnelId = parsedUrl.searchParams.get('_subdomain');
+        }
+
+        if (tunnelId && tunnelId.trim()) {
+          return tunnelId.trim().toLowerCase();
+        }
+      } catch (e) {}
     }
-  }
 
-  // 3. Prioridad: Detección por Query Param (?tunnel=subdominio o ?_subdomain=subdominio)
-  if (reqObj && reqObj.url) {
-    try {
-      const urlObj = new URL(reqObj.url, 'http://localhost');
-      if (urlObj.searchParams.has('tunnel')) {
-        const val = urlObj.searchParams.get('tunnel');
-        if (val && val.trim()) return val.trim().toLowerCase();
+    // 2. Si no viene en la URL, intentar por cabeceras explícitas (x-tunnel-id o x-tunnel-subdomain)
+    if (reqObj.headers) {
+      if (reqObj.headers['x-tunnel-id']) {
+        return reqObj.headers['x-tunnel-id'].trim().toLowerCase();
       }
-      if (urlObj.searchParams.has('_subdomain')) {
-        const val = urlObj.searchParams.get('_subdomain');
-        if (val && val.trim()) return val.trim().toLowerCase();
+      if (reqObj.headers['x-tunnel-subdomain']) {
+        return reqObj.headers['x-tunnel-subdomain'].trim().toLowerCase();
       }
-    } catch (e) {}
+    }
   }
 
   // 4. Prioridad: Encabezado Host o X-Forwarded-Host (para dominios con DNS wildcard propio)
