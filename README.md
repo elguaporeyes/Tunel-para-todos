@@ -8,19 +8,19 @@ Plataforma completa de proxy inverso y tunelización segura (alternativa a ngrok
 
 > **No necesitas Node.js instalado.** Descarga el binario y úsalo directamente desde la terminal.
 
-### Paso 1 — Registrarte y obtener tu API Key
+### Paso 1 — Crear tu cuenta y obtener tu API Key
 
-Ve a [https://tunel-para-todos.onrender.com](https://tunel-para-todos.onrender.com) y crea una cuenta. Tu API Key (`tk_live_...`) se genera automáticamente y se muestra en la respuesta del registro o del login.
-
-También puedes registrarte directamente desde la terminal:
+El ejecutable incluye registro directo desde la consola sin necesidad de herramientas externas:
 
 ```powershell
-curl -X POST https://tunel-para-todos.onrender.com/api/auth/register `
-  -H "Content-Type: application/json" `
-  -d '{"name":"Tu Nombre","email":"tu@email.com","password":"TuPassword123!"}'
+.\mitunel.exe register tu@email.com
 ```
 
-### Paso 2 — Guardar tu API Key en el sistema
+El comando creará tu cuenta en la nube, generará tu clave (`tk_live_...`) y la guardará automáticamente en tu sistema con **100 créditos semanales gratuitos**.
+
+> Si ya dispones de una cuenta previa creada en [https://tunel-para-todos.onrender.com](https://tunel-para-todos.onrender.com), puedes vincular tu token manualmente siguiendo el Paso 2. *(Si utilizaste `mitunel register`, este paso ya se realizó de forma automática).*
+
+### Paso 2 — Guardar tu API Key en el sistema (Opcional si usaste register)
 
 ```powershell
 .\mitunel.exe authtoken tk_live_xxxxxxxxxxxxxxxxxxxxxxxx
@@ -53,7 +53,7 @@ La consola mostrará la URL pública asignada y el panel de tráfico en tiempo r
   🚇  MiTunel CLI  -  Localhost Reverse Proxy Gateway  [ FREE TIER ]
 ========================================================================
   Estado:           ● En Línea
-  Túnel Público:    http://a1b2c3d4.mitunel-proxy.onrender.com
+  Túnel Público:    https://a1b2c3d4.mitunel-proxy.onrender.com
   Servicio Local:   http://localhost:3000
   Subdominio:       a1b2c3d4
   Créditos:         100 restantes esta semana
@@ -67,9 +67,15 @@ La consola mostrará la URL pública asignada y el panel de tráfico en tiempo r
 
 ### Paso 5 — Compartir la URL pública
 
-Comparte la URL del paso anterior con quien necesites. Todas las peticiones entrarán por `mitunel-proxy.onrender.com`, pasarán por el túnel WebSocket y llegarán a tu `localhost:3000`.
+Comparte la URL del paso anterior con quien necesites. Dado que Render proporciona certificados SSL automáticos, la URL funciona de forma segura sobre **`https://`** (así como sobre `http://`). Todas las peticiones entrarán por `mitunel-proxy.onrender.com`, pasarán por el túnel WebSocket y llegarán a tu `localhost:3000`.
 
 > **💡 Tip:** Para mantener el túnel activo de forma permanente, el cliente incluye un **keep-alive automático de ping cada 30 segundos** que evita desconexiones por inactividad en plataformas cloud (Render, Heroku, Railway, etc.).
+
+### 💡 Instalación Global (Opcional)
+
+Para ejecutar `mitunel` desde cualquier carpeta sin anteponer `.\`:
+1. Mueve `mitunel.exe` a `C:\Windows\System32\Mitunel\` (o cualquier carpeta en tu PATH).
+2. ¡Listo! Ya puedes usar simplemente `mitunel http 3000` en cualquier terminal.
 
 ---
 
@@ -77,6 +83,7 @@ Comparte la URL del paso anterior con quien necesites. Todas las peticiones entr
 
 | Comando | Descripción |
 |---|---|
+| `mitunel.exe register <EMAIL>` | Crea una cuenta nueva y guarda el token automáticamente |
 | `mitunel.exe authtoken <KEY>` | Guarda tu API Key en `~/.mitunel/config.json` |
 | `mitunel.exe http <PUERTO>` | Abre un túnel HTTP hacia el puerto local especificado |
 | `mitunel.exe http <PUERTO> --subdomain mi-app` | Subdominio personalizado (Plan Premium) |
@@ -168,3 +175,10 @@ Consulta la [Guía Completa de Despliegue en VPS](./docs/VPS_DEPLOYMENT_GUIDE.md
 Para despliegue en **Render.com** los servicios en la nube son:
 - Control Plane: `https://tunel-para-todos.onrender.com`
 - Tunnel Proxy: `https://mitunel-proxy.onrender.com`
+
+---
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia [MIT](LICENSE). Puedes usarlo y modificarlo libremente.
+
